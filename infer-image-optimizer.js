@@ -188,10 +188,19 @@ export default {
       return fetch(request);
     }
 
-    // Skip media files (video/audio) — pass through without consuming response.
-    // Worker processing breaks Safari's byte-range handling for progressive MP4.
+    // Skip media files (video/audio) — strip Accept-Encoding to prevent
+    // Ghost's Express server from gzip-compressing the response.
+    // Gzip on MP4 destroys byte-range support which Safari requires for
+    // progressive video playback. This is a documented Cloudflare + Safari
+    // incompatibility. Ref: community.cloudflare.com/t/10587
     if (url.pathname.startsWith("/content/media/")) {
-      return fetch(request);
+      const headers = new Headers(request.headers);
+      headers.delete("Accept-Encoding");
+      return fetch(new Request(request.url, {
+        method: request.method,
+        headers: headers,
+        redirect: request.redirect,
+      }));
     }
 
     // Fetch the response from origin
