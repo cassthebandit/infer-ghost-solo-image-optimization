@@ -188,6 +188,12 @@ export default {
       return fetch(request);
     }
 
+    // Skip media files (video/audio) — pass through without consuming response.
+    // Worker processing breaks Safari's byte-range handling for progressive MP4.
+    if (url.pathname.startsWith("/content/media/")) {
+      return fetch(request);
+    }
+
     // Fetch the response from origin
     const response = await fetch(request);
 
