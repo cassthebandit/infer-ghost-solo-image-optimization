@@ -3,13 +3,13 @@
 Cloudflare Worker for automatic image optimization on self-hosted Ghost blogs.  
 Independent of the theme. Source-controlled Worker deployment. Usage is subject to your Cloudflare plan.
 
-**Blog post:** [211 Lines at the Edge: Optimizing Ghost Images for Free](https://infer.blog/ghost-solo-image-optimization/)
+**Blog post:** [211 Lines at the Edge: Optimizing Ghost Images for Free](https://infer.blog/bringing-image-optimization-to-ghost-v5-solo/)
 
 ---
 
 ## What It Does
 
-A 211-line Cloudflare Worker that rewrites `<img>` URLs in Ghost's HTML to route through Cloudflare's [`/cdn-cgi/image/`](https://developers.cloudflare.com/images/transform-images/transform-via-url/) transformation endpoint. The theme stays untouched. Ghost doesn't know it's happening.
+A Cloudflare Worker that rewrites `<img>` URLs in Ghost's HTML to route through Cloudflare's [`/cdn-cgi/image/`](https://developers.cloudflare.com/images/transform-images/transform-via-url/) transformation endpoint. The theme stays untouched. Ghost doesn't know it's happening.
 
 - **Format conversion** — WebP or AVIF via `format=auto`, based on browser support
 - **Quality optimization** — Compresses to quality 80 (configurable)
@@ -45,14 +45,14 @@ Three constants at the top of the Worker:
 
 Production source baseline was reconciled with the live Worker on 2026-09-15. In particular, media requests pass through unchanged, preserving origin byte-range handling. The earlier repository version removed an encoding header; that was not the deployed behavior.
 
-**Setup status:** the native Cloudflare Workers Builds connection is pending GitHub re-authentication and an end-to-end deployment test. Adding these files does not itself connect the repository. Do not describe automatic deployment as active until that test passes.
+**Release path:** GitHub Actions builds/tests and deploys main through pinned Wrangler. Native Cloudflare Builds is not connected; do not enable a second deployment owner. Deployment activation and live proof are being completed in the 2026-09-15 cutover.
 
-Intended connection:
 - Existing Worker: `infer-image-optimizer`.
 - Repository: `cassthebandit/infer-ghost-solo-image-optimization`, production branch `main`.
-- Root directory: repository root; install: `npm ci`; build: `npm test`; deploy: `npm run deploy`.
-- Limit GitHub App repository selection to this repository. Disable automatic non-production branch deployments.
-- Build watch paths: Worker source, `wrangler.jsonc`, package files and `test/**`. Documentation-only changes should not deploy.
+- Workflow: `.github/workflows/check.yml`; Node 22, `npm ci`, `npm test`, `npm run check`, then main-only `npm run deploy`.
+- `CLOUDFLARE_API_TOKEN` is a GitHub repository secret; `CLOUDFLARE_ACCOUNT_ID` is a repository variable. Never commit tokens.
+- Pull requests test without deployment credentials. Push watch paths cover source, Wrangler config, package files, tests and the workflow. Documentation-only pushes do not deploy.
+- Deployment messages record the Git commit. A manual workflow dispatch on main can redeploy the current source.
 
 Local checks use Node 22 or later:
 
@@ -72,7 +72,7 @@ Runtime compatibility date stays `2026-03-21`; existing Workers subdomain remain
 
 ### Verify and roll back
 
-After a main change, inspect the Cloudflare build/deployment tied to that exact commit. Check public homepage/post HTML contains `/cdn-cgi/image/` URLs, transformed images load, Ghost Admin remains untouched, and a real video Range request returns 206 with the expected `Content-Range`. Play and seek the video in a browser.
+After a main change, inspect the GitHub Worker run and Cloudflare version message tied to that exact commit. Check public homepage/post HTML contains `/cdn-cgi/image/` URLs, transformed images load, Ghost Admin remains untouched, and a real video Range request returns 206 with the expected `Content-Range`. Play and seek the video in a browser.
 
 For rollback, use Cloudflare's previous deployment, then revert the faulty Git change before the next release. Retain the last known-good version ID. Do not change routes or restore Ghost data to roll back this Worker.
 
