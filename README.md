@@ -45,12 +45,12 @@ Three constants at the top of the Worker:
 
 Production source baseline was reconciled with the live Worker on 2026-09-15. In particular, media requests pass through unchanged, preserving origin byte-range handling. The earlier repository version removed an encoding header; that was not the deployed behavior.
 
-**Release path:** GitHub Actions builds/tests and deploys main through pinned Wrangler. Native Cloudflare Builds is not connected; do not enable a second deployment owner. Deployment activation and live proof are being completed in the 2026-09-15 cutover.
+**Release path:** GitHub Actions builds/tests and deploys main through pinned Wrangler. Native Cloudflare Builds is not connected; do not enable a second deployment owner. Main deployment, rollback to the prior live version, and redeployment from GitHub passed on 2026-09-15 (America/Chicago).
 
 - Existing Worker: `infer-image-optimizer`.
 - Repository: `cassthebandit/infer-ghost-solo-image-optimization`, production branch `main`.
 - Workflow: `.github/workflows/check.yml`; Node 22, `npm ci`, `npm test`, `npm run check`, then main-only `npm run deploy`.
-- `CLOUDFLARE_API_TOKEN` is a GitHub repository secret; `CLOUDFLARE_ACCOUNT_ID` is a repository variable. Never commit tokens.
+- `CLOUDFLARE_API_TOKEN` is a GitHub repository secret; `CLOUDFLARE_ACCOUNT_ID` is a repository variable. Never commit tokens. The deployment token uses **Workers Scripts Write**, limited to the hosting account, with no DNS, route, storage, or account-management permissions. This legacy permission can edit other Workers in that account; it is not per-Worker isolation. The newer Individual Workers Editor role was tested but rejected by the version-upload endpoint on 2026-09-15. Reassess that compatibility during hardening.
 - Pull requests test without deployment credentials. Push watch paths cover source, Wrangler config, package files, tests and the workflow. Documentation-only pushes do not deploy.
 - Deployment messages record the Git commit. A manual workflow dispatch on main can redeploy the current source.
 
@@ -109,3 +109,11 @@ Built by [Daniel Soteldo](https://infer.blog) with Opus (Claude). Daniel directe
 - [Cloudflare Transform via URL](https://developers.cloudflare.com/images/transform-images/transform-via-url/)
 - [Cloudflare HTMLRewriter API](https://developers.cloudflare.com/workers/runtime-apis/html-rewriter/)
 - [Cloudflare Images pricing](https://developers.cloudflare.com/images/pricing/)
+
+## Verified delivery evidence (2026-09-15)
+
+GitHub [run 35049009783](https://github.com/cassthebandit/infer-ghost-solo-image-optimization/actions/runs/35049009783) deployed commit `39f20ec` as version `e0d2bd15-3ce0-45c2-896f-078f15f1f5f1`. Rollback restored previous version `c4ab28ca-77fd-4723-99d4-1999f138a12f` at 100%. GitHub [run 35049726157](https://github.com/cassthebandit/infer-ghost-solo-image-optimization/actions/runs/35049726157) redeployed the source as `521d814e-9a32-4a9d-bcd8-e1148bf916e7`. Route identities and fail-open settings stayed unchanged.
+
+Public video byte-range checks returned 206 with the requested 1024-byte ranges. Transformed images loaded and video playback/seeking worked in desktop/mobile-width Chromium. Safari/iOS was not separately tested.
+
+The documented [Cloudflare GitHub Actions path](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/) is the release owner. The [version-upload endpoint](https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/create/) currently requires the compatible Workers Scripts Write token used here.
