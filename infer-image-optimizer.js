@@ -184,7 +184,7 @@ export default {
     }
 
     // Skip non-GET requests (POST to API, member auth, etc.)
-    if (request.method !== "GET") {
+    if (request.method !== "GET" && request.method !== "HEAD") {
       return fetch(request);
     }
 
@@ -208,10 +208,20 @@ export default {
       return response;
     }
 
+    // Baseline headers on public HTML only; admin, APIs, media and errors stay untouched.
+    const secured = new Response(response.body, response);
+    secured.headers.set("Strict-Transport-Security", "max-age=31536000");
+    secured.headers.set("X-Content-Type-Options", "nosniff");
+    secured.headers.set("X-Frame-Options", "SAMEORIGIN");
+    secured.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    // Observation only: browser console reports violations; no reporting service or enforcement.
+    secured.headers.set("Content-Security-Policy-Report-Only", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; font-src 'self' data:; connect-src 'self' https:; frame-src https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'");
+    if (request.method === "HEAD") return secured;
+
     // Apply HTMLRewriter to rewrite image URLs in the HTML
     return new HTMLRewriter()
       .on("img", new ImageHandler())
       .on("source", new SourceHandler())
-      .transform(response);
+      .transform(secured);
   }
 };
