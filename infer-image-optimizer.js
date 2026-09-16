@@ -214,4 +214,4 @@ export default {
       .on("source", new SourceHandler())
       .transform(response);
   }
-}; 
+};
