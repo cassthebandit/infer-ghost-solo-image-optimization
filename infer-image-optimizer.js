@@ -1,7 +1,7 @@
 // infer-image-optimizer.js
 // Cloudflare Worker for Ghost image optimization via HTMLRewriter + /cdn-cgi/image/ URL format
 // Spec: ghost-image-optimization-spec-v3.1.md
-// Deploy: Cloudflare Dashboard → Workers & Pages → Create Worker → paste this → Save and Deploy
+// Deploy: Git main → Cloudflare Workers Builds (see README).
 // Route: infer.blog/* (set in Worker Settings → Triggers → Routes)
 
 // --- Configuration ---
@@ -188,19 +188,11 @@ export default {
       return fetch(request);
     }
 
-    // Skip media files (video/audio) — strip Accept-Encoding to prevent
-    // Ghost's Express server from gzip-compressing the response.
-    // Gzip on MP4 destroys byte-range support which Safari requires for
-    // progressive video playback. This is a documented Cloudflare + Safari
-    // incompatibility. Ref: community.cloudflare.com/t/10587
+    // Skip media files — serve directly without Worker processing.
+    // Preserve the request and origin byte-range response unchanged.
+    // The production tunnel reaches Ghost directly; no compression middleware here.
     if (url.pathname.startsWith("/content/media/")) {
-      const headers = new Headers(request.headers);
-      headers.delete("Accept-Encoding");
-      return fetch(new Request(request.url, {
-        method: request.method,
-        headers: headers,
-        redirect: request.redirect,
-      }));
+      return fetch(request);
     }
 
     // Fetch the response from origin
@@ -222,4 +214,4 @@ export default {
       .on("source", new SourceHandler())
       .transform(response);
   }
-};
+}; 

@@ -1,0 +1,11 @@
+{
+  "name": "infer-image-optimizer",
+  "main": "infer-image-optimizer.js",
+  "compatibility_date": "2026-03-21",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "preview_urls": false
+}
