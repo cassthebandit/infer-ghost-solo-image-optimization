@@ -117,3 +117,23 @@ GitHub [run 35049009783](https://github.com/cassthebandit/infer-ghost-solo-image
 Public video byte-range checks returned 206 with the requested 1024-byte ranges. Transformed images loaded and video playback/seeking worked in desktop/mobile-width Chromium. Safari/iOS was not separately tested.
 
 The documented [Cloudflare GitHub Actions path](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/) is the release owner. The [version-upload endpoint](https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/create/) currently requires the compatible Workers Scripts Write token used here.
+
+## Origin identity and public HTML policy
+
+Before forwarding any request, including admin/member authentication and media,
+the Worker replaces `X-Forwarded-For` and `X-Real-IP` with Cloudflare's
+`CF-Connecting-IP`. Cloudflare normally appends to an incoming forwarding chain,
+and Ghost's current trusted-proxy mode otherwise selects a caller-supplied first
+address. Missing edge identity removes the caller-controlled headers instead.
+Bodies, cookies, authorization, range and response passthrough remain unchanged.
+
+Public successful HTML uses an enforcing CSP allowing the existing Ghost
+Portal/Search CDN and Cloudflare analytics script. Inline scripts/styles remain
+allowed for theme/Ghost compatibility; this is not a nonce-based policy or full
+XSS protection. Admin, APIs, media and errors do not receive the public policy.
+
+The exact live forwarding finding and predeployment browser proof are recorded
+in the private operator hardening follow-up. After deployment, verify a harmless
+spoofed-header request in filtered origin logs, public Search/sign-in, post images
+and media range responses. No login attempts, mail sends or rate-limit flooding
+are needed. Roll back through a reviewed revert of this change if these regress.
