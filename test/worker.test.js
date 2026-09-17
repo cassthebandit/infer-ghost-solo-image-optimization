@@ -78,3 +78,26 @@ test('missing edge IP removes caller-controlled IP headers', async () => {
   assert.equal(r.calls[0].headers.has('X-Forwarded-For'),false);
   assert.equal(r.calls[0].headers.has('X-Real-IP'),false);
 });
+
+for (const path of ['///', '////', '/'.repeat(255), '///?q=hello']) {
+  for (const method of ['GET', 'HEAD', 'POST']) {
+    test(`malformed slash-only path rejected before origin: ${method} ${path.length}`, async () => {
+      const r=runtime(new Response('must not reach origin'));
+      const result=await r.worker.fetch(new Request('https://infer.blog'+path,{method}));
+      assert.equal(result.status,400);
+      assert.equal(r.calls.length,0);
+      assert.equal(result.headers.get('cache-control'),'no-store');
+      assert.equal(result.headers.get('strict-transport-security'),'max-age=31536000');
+      assert.equal(await result.text(),method==='HEAD'?'':'Invalid URL path.\n');
+    });
+  }
+}
+for (const path of ['/', '//', '/post/amp/?q=one', '/post//part/', '/?next=///']) {
+  test('ordinary/AMP paths and query preserved: '+path, async()=>{
+    const original=new Response(null,{status:301,headers:{Location:'/post/?q=one'}});
+    const r=runtime(original);
+    assert.equal(await r.worker.fetch(new Request('https://infer.blog'+path)),original);
+    assert.equal(r.calls.length,1);
+    assert.equal(r.calls[0].url,'https://infer.blog'+path);
+  });
+}

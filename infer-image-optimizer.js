@@ -173,6 +173,16 @@ export default {
   async fetch(request) {
     const url = new URL(request.url);
 
+    // Ghost's AMP middleware throws on slash-only paths with 3+ slashes.
+    // Reject these before origin fetch; preserve normal paths and double slash.
+    if (/^\/{3,}$/.test(url.pathname)) {
+      return new Response(request.method === "HEAD" ? null : "Invalid URL path.\n", {
+        status: 400,
+        headers: {"Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store",
+          "Strict-Transport-Security": "max-age=31536000", "X-Content-Type-Options": "nosniff"}
+      });
+    }
+
     // Cloudflare supplies CF-Connecting-IP, but appends to caller-controlled XFF.
     // Ghost trusts proxies, so normalize before every origin path, including auth.
     const originRequest = new Request(request);
