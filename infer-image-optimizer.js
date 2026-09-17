@@ -173,7 +173,17 @@ export default {
   async fetch(request) {
     const url = new URL(request.url);
 
-    // Skip Ghost Admin — must never be modified
+    // Cloudflare supplies CF-Connecting-IP, but appends to caller-controlled XFF.
+    // Ghost trusts proxies, so normalize before every origin path, including auth.
+    const originRequest = new Request(request);
+    const clientIP = request.headers.get("CF-Connecting-IP");
+    for (const name of ["X-Forwarded-For", "X-Real-IP"]) {
+      if (clientIP) originRequest.headers.set(name, clientIP);
+      else originRequest.headers.delete(name);
+    }
+    request = originRequest;
+
+    // Skip response rewriting for Ghost Admin
     if (url.pathname.startsWith("/ghost/")) {
       return fetch(request);
     }
@@ -189,7 +199,7 @@ export default {
     }
 
     // Skip media files — serve directly without Worker processing.
-    // Preserve the request and origin byte-range response unchanged.
+    // Preserve range/body handling and the origin byte-range response unchanged.
     // The production tunnel reaches Ghost directly; no compression middleware here.
     if (url.pathname.startsWith("/content/media/")) {
       return fetch(request);
@@ -214,8 +224,9 @@ export default {
     secured.headers.set("X-Content-Type-Options", "nosniff");
     secured.headers.set("X-Frame-Options", "SAMEORIGIN");
     secured.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-    // Observation only: browser console reports violations; no reporting service or enforcement.
-    secured.headers.set("Content-Security-Policy-Report-Only", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; font-src 'self' data:; connect-src 'self' https:; frame-src https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'");
+    // Ghost Portal/Search and the theme require these scripts. Inline scripts remain
+    // allowed for compatibility; this is a baseline CSP, not a nonce-based policy.
+    secured.headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; media-src 'self' https:; font-src 'self' data:; connect-src 'self' https:; frame-src https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'");
     if (request.method === "HEAD") return secured;
 
     // Apply HTMLRewriter to rewrite image URLs in the HTML
